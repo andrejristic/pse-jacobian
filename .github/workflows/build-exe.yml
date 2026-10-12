@@ -37,9 +37,9 @@ jobs:
         working-directory: app
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
-          $p = Start-Process "$env:RUNNER_TEMP\jac\pse-jacobian.exe" -PassThru
+          $p = Start-Process "$env:RUNNER_TEMP\jac\pse-jacobian.exe" -PassThru -RedirectStandardError "$env:RUNNER_TEMP\err.log" -RedirectStandardOutput "$env:RUNNER_TEMP\out.log"
           Start-Sleep -Seconds 20
-          if ($p.HasExited) { throw "exited with code $($p.ExitCode)" }
+          if ($p.HasExited) { Write-Host "=== exited $($p.ExitCode); stderr:"; Get-Content "$env:RUNNER_TEMP\err.log" -ErrorAction SilentlyContinue; Write-Host "=== stdout:"; Get-Content "$env:RUNNER_TEMP\out.log" -ErrorAction SilentlyContinue; throw "exited with code $($p.ExitCode)" }
           Stop-Process -Id $p.Id -Force
       - uses: actions/upload-artifact@v4
         with:

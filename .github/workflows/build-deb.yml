@@ -27,10 +27,9 @@ jobs:
         run: |
           sudo apt-get install -y xvfb libxcb-cursor0
           export QT_QPA_PLATFORM=offscreen
-          timeout 25 xvfb-run -a pse-jacobian &
+          xvfb-run -a pse-jacobian >/tmp/app.log 2>&1 &
           pid=$!; sleep 18
-          kill -0 $pid && echo running || { echo "exited early"; exit 1; }
-          kill $pid 2>/dev/null || true
+          if kill -0 $pid 2>/dev/null; then echo running; kill $pid 2>/dev/null || true; else echo "=== exited early; output:"; cat /tmp/app.log; exit 1; fi
       - uses: actions/upload-artifact@v4
         with:
           name: pse-jacobian-deb

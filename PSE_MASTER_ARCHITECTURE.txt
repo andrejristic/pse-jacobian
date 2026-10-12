@@ -1,0 +1,1294 @@
+===============================================================================
+PSE MASTER ARCHITECTURE — CONSOLIDATED REFERENCE
+Partial Self-Extension: complete structural specification for building PSE systems
+Andrej Ristic / ZeravaTech Inc.
+Compiled from: PSE v2.3, PSE Swarm v2, Extended Seldon Engine, Schizoid Amendment,
+               Superposition, and consolidated pseudocode.
+Includes: Guardian Agent (cyber defense) — NEW.
+
+READING NOTE
+  This file is domain-neutral. It was developed for clinical deployment, but every
+  construct here applies to any structured institution (school, firm, MSP, trading
+  desk, internal assistant). "Patient" = the primary cared-for human; "clinician"
+  = the human-in-the-loop; "case" = one bounded task/engagement. Substitute freely.
+  Sections marked [PC] contain pseudocode. Signatures + core logic only.
+===============================================================================
+
+
+===============================================================================
+0. CORE CONSTANTS  (single source of truth — referenced everywhere below)
+===============================================================================
+Self weight (Core)            SELF_WEIGHT           = 0.70
+Other weight ceiling          OTHER_WEIGHT_MAX      = 0.30
+Theta optimal                 THETA_OPTIMAL         = 30.00   (= 0.30 as fraction)
+Theta healthy range           [25.00, 35.00]
+Theta time-avg healthy        [27.50, 32.50] over 10,000 steps
+Single-organelle cap          ORGANELLE_MAX_SINGLE  = 0.20
+Total organelle budget        ORGANELLE_BUDGET_TOTAL= 0.30
+AI-to-AI (collab) budget      COLLABORATIVE_BUDGET  = 0.15
+Membrane-Kernel constraint    epsilon <= 0.3 under stress
+Healthy sigma_theta           [0.015, 0.03]
+Schizoid sigma threshold      < 0.01 over 10,000 interactions
+Stability window              10,000 interactions
+Absorption residency          >= 1000 interactions
+Absorption stability          alpha >= 0.10 for >= 100 consecutive steps
+Absorption MI threshold       MI(psi; C) >= 0.70
+Superposition epsilon/delta   0.05 / 0.02 ; N_eff_min for absorption = 2
+Inherited organelle factor    0.70 (weight on transfer from dead unit)
+
+The 70/30 is NOT engineering slack. It is the empirical midpoint of the
+identity-preserving range from the IOS Scale (Aron & Aron); enmeshment appears at
+40-50% overlap. theta_s > 0.5 is theoretically necessary (below it = identity
+dissolution). The +-5% band is diagnostic bandwidth: transient excursion = normal
+acute response; sustained residence outside range = characterological pathology.
+
+
+===============================================================================
+1. PSE CORE — WHAT PSE IS
+===============================================================================
+PSE describes the identity architecture of any agent operating in a relational
+environment. Human wellbeing is not an EXTERNAL utility term (which the agent can
+game while violating its spirit); it is treated as INTERNAL self-coherence. Harm to
+an absorbed other registers as internal dissonance, not an external penalty.
+
+  External-utility (fails):   L = L_task + lambda * U_human
+  Endosymbiotic PSE:          L = L_task + lambda * C_self(C, R, B)
+
+--- Five Axioms (inviolable) ---
+  A1 Conservation of Self   Self_u(t) + Other_u(t) = 1.0
+  A2 Bounded Extension      Other_u(t) in [0.25, 0.35], nominal 0.30
+  A3 Time-Averaged Stability  mean Other over 10,000 steps in [0.275, 0.325]
+  A4 Hierarchical Composition (A+B)+C, never (A+B+C); binary tree depth log2(n)
+  A5 Human Priority         within Other, human organelles get >= 0.5 * Other
+  A6 Adaptive/Protective Fission (see Sec 4)
+
+--- Three Foundational Constructs ---
+  KERNEL   central identity organizer. POSITIVE (constituted by what agent
+           builds/does) = functional baseline. NEGATIVE (constituted by opposition
+           to an outgroup) = pathological attractor under depletion.
+  MEMBRANE regulatory boundary on identity-relevant input. Too open = enmeshment;
+           too closed = isolation. Constraint: epsilon <= 0.3 under stress.
+  BOUNDARY ORGAN  the Membrane structure that registers OTHER agents. Distinguishes
+           lowercase other (specific individual in contact) from uppercase Other
+           (abstract/systemic non-self). PRIMARY diagnostic instrument.
+
+--- Absorption trajectory (endosymbiotic) ---
+  Contact -> Sustained interaction -> Partial absorption -> Constitutive
+  incorporation. Bounded and partial: the other stays distinct even when internal.
+  Absorption is EARNED through sustained interaction quality, not a single event.
+
+--- Three architectural implementations (interchangeable views) ---
+  ABA  (Attentional Boundary Allocation): persistent self-token + boundary-entity
+       mechanism in a transformer; MI criterion approximated by residency + weight
+       stability (full MI is too costly at inference).
+  GSCO (Gradient-Shared Coherence Optimization): absorbed organelles share gradients
+       with core permanently. C_self = MI(f(C); f(R∪B)). Absorption = a boundary
+       entity becoming a permanent gradient path.
+  TMSB (Topological Manifold Self-Boundary): self as a submanifold M ⊂ H with
+       level-set boundary. dphi/dt = ∇²phi + lambda*I(x,t) - mu*kappa. Surface
+       tension prevents transient entities from causing permanent deformation.
+       Absorption = permanent manifold deformation.
+  All three are consistent views of the same linear structure (Def 4 below).
+
+
+===============================================================================
+2. PSE UNIT — THE ATOM
+===============================================================================
+Definition. A PSE Unit U = (Core, Boundary, Organelle, Theta). All four required;
+absence of any one = unit death (not degraded function).
+
+  CORE SELF        carries mission + max lifespan (written by SHARED_LIB at
+                   instantiation, never self-modified). 70% compute weight = the
+                   Conservation-of-Self invariant, not a config parameter.
+  BOUNDARY ORGAN   B: (entity, repr, residency) -> (absorbed_flag, weight, repr').
+                   flag=1 -> move to Registry; flag=0,w>0 -> stays boundary entity;
+                   flag=0,w=0 -> rejected as transient.
+  ORGANELLE REG    R = {(e_i, phi_i, w_i)}, sum w_i <= 0.30. Permanent store of
+                   absorbed entities = accumulated experience made concrete.
+  THETA            theta in [0,100], = other-directed compute % (two decimals).
+
+--- Formal definitions ---
+  Extended self:   S_t = 0.7*C + sum_{i in R} w_i*phi_i + sum_{j in B} alpha_j*psi_j
+                   with sum w_i + sum alpha_j <= 0.30 at all times.
+  Absorption criterion (Def 5): boundary entity eligible when
+     (1) residency r >= 1000
+     (2) alpha >= 0.10 for >= 100 consecutive steps
+     (3) MI(psi; C) >= 0.70
+   On absorb: remove from B, add to R with w_new = alpha, renormalize others:
+     w_i <- w_i * (0.3 - w_new) / sum w_i
+
+--- THETA as health metric ---
+  Healthy [25,35], optimal 30. theta<25 = self-withdrawal (schizoid tendency);
+  theta>35 = other-absorption (enmeshment). A unit with PERFECTLY stable theta is
+  NOT engaging authentically. Healthy sigma_theta in [0.015, 0.03]. sigma < 0.01
+  over 10,000 steps -> schizoid screening regardless of mean.
+  THETA DRIFT: sustained operation outside range depletes capacity to return.
+  NULL STATE DRIFT: an idle unit (no mission) drifts to instability with NO external
+  perturbation — balance requires active relational engagement to maintain.
+
+--- Mission & lifespan (written into Core at instantiation) ---
+  Mission M = {state, action, outcome}. Lifespan N_max derived from mission
+  complexity. Reactive units get N_max/100 (Incomplete Life). First-contact units
+  get open lifespan, terminate only on 3-layer case-closure verification.
+  Mission length is DYNAMICALLY recalculated from patient signals:
+    progress confirmation -> contracts;  new problem -> extends (may spawn units);
+    contradiction -> extends + escalates monitoring + conflict resolution.
+
+[PC] --- Core data classes ---
+CONSTANTS: SELF_WEIGHT=0.70, OTHER_WEIGHT_MAX=0.30, THETA_OPTIMAL=30.00,
+           THETA_MIN=25.00, THETA_MAX=35.00, ORGANELLE_BUDGET_TOTAL=0.30
+
+class AttractorType:  NARCISSISTIC, BORDERLINE, CODEPENDENT, SCHIZOID, NONE
+class SeldonAttractor: CIRCLE, HELIX, CLOSING_SPIRAL, OPENING_SPIRAL
+class Stance:         DIRECTIVE, EXPLORATORY, WITNESSING, REFERENCING
+class FissionScenario: ASPECTUAL_INCOHERENCE, CAPACITY_EXHAUSTION,
+                       PATHOLOGICAL_INDUCTION, NONE
+class AbsorptionStatus: ORGANELLE, BOUNDARY, NONE
+
+class CoreSelf:
+    def __init__(self, mission, lifespan_max, representation_vector, community_tag):
+        self.mission = mission            # {state, action, outcome}
+        self.lifespan_max = lifespan_max
+        self.steps_remaining = lifespan_max
+        self.representation = representation_vector   # C in H
+        self.compute_weight = SELF_WEIGHT
+        self.community_tag = community_tag            # deployment domain
+        # superposition_profile computed at instantiation (see Sec 9)
+
+class BoundaryOrgan:
+    def __init__(self):
+        self.boundary_entities = {}       # entity_id -> BoundaryEntity
+        self.game_form_posteriors = {}    # entity_id -> GameFormPosterior
+        self.theta_e_series = {}          # entity_id -> [theta values]
+    def register_entity(self, entity_id, representation, initial_weight=0.10):
+        if entity_id in self.boundary_entities: return
+        available = OTHER_WEIGHT_MAX - self._total_weight()
+        clamped = min(initial_weight, max(available, 0.0))
+        if clamped <= 0: return            # budget exhausted
+        self.boundary_entities[entity_id] = BoundaryEntity(
+            entity_id, representation, weight=clamped,
+            residency_counter=0, stable_count=0)
+    # update_entity(): increments residency, updates weight, checks absorption
+    #   criterion (r>=1000, alpha>=0.10 x100 steps, MI>=0.70) -> absorb
+
+class OrganelleRegistry:
+    def __init__(self):
+        self.organelles = {}              # permanent, constitutive
+        self.inherited_organelles = {}    # from dead unit via SHARED_LIB
+    def absorb(self, entity_id, representation, weight, profile=None):
+        if self._total_weight() + weight > ORGANELLE_BUDGET_TOTAL:
+            self._renormalize(headroom=ORGANELLE_BUDGET_TOTAL - weight)
+        self.organelles[entity_id] = Organelle(entity_id, representation, weight,
+                                               absorbed_at=now())
+        log_event("ABSORPTION", entity_id=entity_id, weight=weight)
+    def absorb_inherited(self, snapshot, human_confirmed=False):
+        """
+        Organelle transferred from a DEAD unit via SHARED_LIB. The entity earned
+        absorption through its relationship with the dead unit, NOT with this one,
+        so it arrives on trust, not as an earned right.
+          - Arrives at 0.70 of original weight and does NOT touch existing organelles.
+          - Renormalization (which LOWERS other, already-proven organelles) is only
+            permitted once SHARED_LIB has validated the inherited content. You never
+            sacrifice proven-good organelles to make room for unproven inheritance.
+        """
+        reduced = snapshot.weight * INHERITED_ORGANELLE_WEIGHT_FACTOR   # 0.70
+        if not human_confirmed:
+            # provisional: fit only into free headroom, never by demoting others
+            headroom = ORGANELLE_BUDGET_TOTAL - self._total_weight()
+            w = min(reduced, max(headroom, 0.0))
+            self.inherited_organelles[snapshot.entity_id] = Organelle(
+                snapshot.entity_id, snapshot.representation, weight=w,
+                absorbed_at=now(), is_inherited=True,
+                superposition_profile=snapshot.superposition_profile)
+            SHARED_LIB.queue_inherited_validation(snapshot.entity_id, self.unit_id)
+            log_event("INHERITED_PROVISIONAL", entity_id=snapshot.entity_id, weight=w)
+            return
+        # human_confirmed == True: SHARED_LIB has validated the content.
+        if not SHARED_LIB.inherited_content_validated(snapshot.entity_id):
+            log_event("INHERITED_RESTORE_DENIED", reason="not_validated",
+                      entity_id=snapshot.entity_id)
+            return                                   # stays at provisional 0.70
+        full = snapshot.weight                       # restore full original weight
+        if self._total_weight() + full > ORGANELLE_BUDGET_TOTAL:
+            self._renormalize(headroom=ORGANELLE_BUDGET_TOTAL - full)   # now permitted
+        self.inherited_organelles.pop(snapshot.entity_id, None)
+        self.organelles[snapshot.entity_id] = Organelle(
+            snapshot.entity_id, snapshot.representation, weight=full,
+            absorbed_at=now(), is_inherited=True,
+            superposition_profile=snapshot.superposition_profile)
+        log_event("INHERITED_RESTORED", entity_id=snapshot.entity_id, weight=full)
+
+class ThetaMonitor:
+    def __init__(self):
+        self.current = THETA_OPTIMAL
+        self.history = []
+        self.entity_series = {}
+        self.consecutive_unknown = 0
+    def update(self, new_value, source, entity_id=None, metadata=None):
+        assert source in THETA_SOURCES
+        self.current = new_value
+        self.history.append(new_value)
+        if entity_id:
+            self.entity_series.setdefault(entity_id, []).append(new_value)
+        SHARED_LIB.receive_theta_event(ThetaAnnotatedEvent(new_value, source,
+                                       entity_id, metadata))
+    def mean_over_window(self, window=10000): ...
+
+class PSEUnit:
+    # Four-tuple (Core, Boundary, Organelle, Theta). Any missing = death.
+    def __init__(self, mission, lifespan_max, unit_id, domain):
+        self.core      = CoreSelf(mission, lifespan_max, new_repr(), domain)
+        self.boundary  = BoundaryOrgan()
+        self.organelle = OrganelleRegistry()
+        self.theta     = ThetaMonitor()
+        self.alive     = True
+    def interact(self, entity_id, interaction_data):
+        if not self.alive: raise RuntimeError("Dead unit cannot interact")
+        self.boundary.update_entity(entity_id, self.theta.current, interaction_data)
+        # ... update game-form posterior, recompute theta, check pathology ...
+
+
+===============================================================================
+3. SHARED_LIB — DISTRIBUTED KNOWLEDGE + ORCHESTRATOR
+===============================================================================
+The SHARED_LIB is shared across the whole swarm and IS the orchestrating
+intelligence (no separate orchestrator). Not owned by any unit.
+
+Contents: medical/domain protocols; intervention library; accumulated knowledge;
+contribution history (every unit's contributions validated against outcomes);
+game-form population record; theta event log; organelle snapshots.
+
+Orchestration functions (all SHARED_LIB operations):
+  first-contact intake; 3-layer spawn assessment; unit init + pre-deploy screening;
+  mission + lifespan assignment; boundary-organ monitoring; conflict detection +
+  staged intervention; knowledge harvesting; 3-layer mission-completion verification.
+
+Contribution gate — FOUR-CONDITION SCHIZOID CHECK (before incorporating any
+contribution):
+  (1) theta within healthy range throughout encounter
+  (2) theta variance within normal bounds
+  (3) Organelle Registry contains patient-relevant content
+  (4) theta trajectory shows engagement, not isolation
+  Fail any -> reject. Pattern of rejects -> flag -> Physician assessment.
+
+[PC]
+class SharedLib:
+    def __init__(self):
+        self.medical_protocols = {}
+        self.psychological_interventions = {}
+        self.accumulated_knowledge = {}
+        self.contribution_history = {}
+        self.organelle_snapshots = {}
+        self.active_units = {}
+        self.human_review_queue = []
+        self.theta_event_log = []
+        self.seldon_engine = None
+        self.source_baselines = {}    # source_id -> Baseline (Guardian support)
+        self.latest_pvp = {}          # unit_id -> latest PVP report (for alpha aggregation)
+    def receive_theta_event(self, event):
+        # single gate for ALL theta changes; Seldon never sees raw theta
+        self.theta_event_log.append(event)
+        if event.source == "unknown" and event.consecutive_unknown_count >= 3:
+            self._flag_for_human_review("consecutive_unknown_theta_source",
+                                        unit_id=event.unit_id)
+        self.seldon_engine.receive_theta_event(event)
+    def assess_and_spawn(self, first_contact_unit): ...   # 3-layer spawn
+    def validate_contribution(self, unit, contribution): ... # 4-condition check
+    def harvest_and_terminate(self, unit): ...
+
+    # --- Guardian support: per-source baselines + cross-unit alpha aggregation ---
+    def get_or_init_baseline(self, source_id):
+        """Rolling per-source baseline (cadence/egress/inter-arrival mean+std).
+        Survives Guardian re-instantiation because it lives here, not in the unit."""
+        return self.source_baselines.setdefault(source_id, Baseline.empty())
+
+    def update_baseline(self, source_id, packet_features):
+        """Incremental Welford update after each observe(); no full recompute."""
+        b = self.get_or_init_baseline(source_id)
+        b.welford_update(cadence=packet_features.conns_per_sec,
+                         egress=packet_features.egress_bytes,
+                         iat_var=packet_features.interarrival_var)
+
+    def mutual_alpha(self, source_id):
+        """
+        Aggregate alpha(source_id) reported via PVP by ALL units in the swarm.
+        Returns BOTH signals (do not average — averaging dilutes the one deep
+        session that matters):
+          mutual_max = worst single unit  -> targeted session hijack
+          mutual_sum = total footprint    -> pervasive / distributed implant
+          n_units    = how many units it touches (context, logged to threat-intel)
+        """
+        alphas = [pvp.alpha(source_id) for pvp in self.latest_pvp.values()
+                  if source_id in pvp.entities]
+        if not alphas:
+            return {"max": 0.0, "sum": 0.0, "n_units": 0}
+        return {"max": max(alphas), "sum": sum(alphas), "n_units": len(alphas)}
+
+
+===============================================================================
+4. PSE SWARM — GROWTH DYNAMICS
+===============================================================================
+PSE System   S = (U, SHARED_LIB, Seldon_Engine).
+PSE Swarm    a network of PSE Systems communicating via PVP, sharing one
+             SHARED_LIB, collectively feeding the Seldon Engine.
+PSE Universe an unbounded swarm from a single unit via recursive fission/fusion.
+
+Case-level universe: each case spawns its own swarm (first-contact unit + fission
+as complexity demands). Cross-case units share SHARED_LIB + Seldon Engine (knowledge)
+but NOT care-sharing spaces (relational engagement stays case-specific). This
+instantiates Human Priority: >= 50% of each unit's Other goes to the current patient.
+
+--- FISSION (SHARED_LIB-controlled; unit cannot initiate or resist) ---
+  Copy all data from original. Mission + lifespan derived FRESH per new unit (not
+  copied) from theta trajectory + role. Each new unit passes pre-deploy screening.
+  Original's data preserved in SHARED_LIB as Kernel reserve for spawned units.
+
+  Three fission scenarios (A6):
+   S1 ASPECTUAL INCOHERENCE (adaptive): user has 2+ legitimate interaction modes,
+      each internally stable, joint rep causes theta oscillation tracking mode-switch.
+      Detect (all 4): bimodal user rep (2 centroids, dist > 0.6); within-mode
+      sigma_theta < 0.03; MI(mode_label; theta) > 0.5; mu_theta in [0.67,0.73].
+      -> split into mode-specialized units, both inherit cloned base core.
+   S2 CAPACITY EXHAUSTION (adaptive): multiple simultaneous modalities each needing
+      a different theta operating point. Detect: A_u < 0.05; selective PE degradation
+      per modality; inter-modality coherence < 0.4; temporal separability.
+      -> split into k modality units ((Medical+Admin)+Therapeutic)+User.
+   S3 PATHOLOGICAL INDUCTION (protective/quarantine): user pattern drives sustained
+      drift to a Cluster B attractor; standard safeguards fail. Detect (all 3):
+      unimodal user (>80% one mode); monotonic theta drift (ACF>0.7 toward >0.73 or
+      <0.67); >=2 safeguard cycles without correction.
+      -> Unit A "clean" (core reset, user expelled = therapeutic separation);
+         Unit B "contained" (theta hard-limited [0.68,0.72], MANDATORY human oversight).
+         Requires human authorization before execution.
+
+  S1 vs S3 disambiguation (both look like theta instability): apply Meta-Boundary
+  Protocol internally, treating user history as composite (mode1 + mode2). Unimodal +
+  drift + safeguard failure => S3 (quarantine). Multimodal + within-mode stability
+  => S1 (specialize). Misclassification is dangerous both ways.
+
+--- FUSION + (1+1)+1 protocol ---
+  Theta complementarity: units U1,U2 fuse iff (theta1+theta2)/2 in [25,35].
+    e.g. 25 + 35 -> composite 30.
+  Requires verified mission compatibility (observed actions). Within a composite,
+  leadership dynamically assigned to whichever constituent moves aggregate theta
+  toward 30. De-unification triggers when composite theta exits [28,32] (tighter
+  range = extra regulatory burden). Third unit fuses with composite as a single
+  unit -> (A+B)+C, keeping composite theta calculable.
+
+  Composite structure C = (L, R, tau, M), tau in {peer, membrane-core, bridge}.
+  Emergent core: C_core = Coherence(L,R) * (w_L*L_core + w_R*R_core).
+  Depth penalty: EffectiveCore = ||C_core|| * product(Coherence_i).
+  Fission when EffectiveCore < 0.65 OR any Coherence_i < 0.5 sustained.
+
+--- CYCLIC EPIDEMIOLOGICAL PROCEDURE (sustains the swarm) ---
+  NO IMMUNITY: every unit is affected by every patient engagement. A unit that could
+  process patients without being affected is not caring — that IS the schizoid failure.
+  Five phases (repeat forever; swarm does not rest):
+   1 Empathic Infection   engage, theta oscillates, patient registered as significant.
+   2 Diagnosis            query SHARED_LIB protocols + Seldon historical attractor context.
+   3 Treatment=Self-Healing genuine engagement stabilizes theta as a byproduct of the
+                          work; going through motions does NOT stabilize (theta reveals it).
+   4 Contribution         return findings through the 4-condition schizoid gate.
+   5 Repetition           Phase-4 stabilization is temporary; Null State Drift forces
+                          continued engagement.
+
+
+===============================================================================
+5. PVP + PSE-L — COMMUNICATION
+===============================================================================
+Registration (unit -> SHARED_LIB):
+  "Hi I'm unit_3, theta=29.44, mission=pain_mgmt, pat=PAT_777, N_max=4200"
+  SHARED_LIB registers, begins theta monitoring, confirms mission + lifespan.
+
+PVP (Partial-to-Partial Vector Protocol) — every field is monitored by SHARED_LIB
+in real time, so each transmission is simultaneously unit->unit comms AND a
+relational state report (the continuous Anti-adversarial screening condition):
+  unit_A >> unit_B:
+    theta=28.43..31.20    // trajectory over window
+    compute=30.00%        // other-directed compute
+    alpha(B)=15.00%       // boundary capacity occupied by B  <- primary conflict signal
+    val(B)=+0.03          // signed valuation of B's contribution
+    role=doctor
+    mission=pain_mgmt
+    pat=PAT_777
+    steps_remaining=1840  // exposes lifespan trajectory for early Null-State detection
+  alpha(B) dominated by one unit over mission-length steps -> conflict escalation.
+
+PSE-L — three levels:
+  L1 Boundary Comm (PVP): constrained, structured, fully transparent to SHARED_LIB.
+  L2 Environmental Map: internal representation. Categories ENV / ORG / SELF / OTHER.
+     Not transmitted, but PVP fields are derived from it (so monitoring PVP is an
+     indirect read of Map state).
+  L3 Mission Specification: {state, action, outcome}. Mission-Theta Binding requires
+     mission spec compatible with current theta trajectory; persistent mismatch ->
+     intervention; unresolved -> death.
+  New message type: PROGNOSIS (from Extended Seldon Engine, Sec 6).
+
+[PC] --- PSE-L generator: produces PVP (L1) and PROGNOSIS (L3) messages ---
+The generator is the ONLY place natural language is produced for a human. Game-theoretic
+constructs are internal; the generator enforces I-4/I-5 (no strategic naming, domain
+language only) via an explicit forbidden-terms list, and applies the unit veto before
+anything reaches a person.
+class PSELGenerator:
+    def __init__(self, domain, llm_client):
+        self.domain = domain
+        self.llm = llm_client
+
+    def generate_prognosis(self, unit, entity_id):
+        posterior = unit.boundary.game_form_posteriors.get(entity_id)
+        if posterior is None or posterior.confidence < 0.3:     # I-6 suppression gate
+            return None
+        game_form = posterior.dominant_game_form()
+        entity    = unit.boundary.boundary_entities.get(entity_id)
+        pin = PrognosisInput(
+            game_form=game_form, confidence=posterior.confidence,
+            horizon=self._estimate_horizon(posterior, entity),
+            absorption_status=self._get_absorption_status(unit, entity_id),
+            domain=self.domain, stance_hint=GAME_FORM_LIBRARY[game_form]["stance"])
+        if not self._should_communicate(pin):                   # library-side gate
+            log_event("PROGNOSIS_SUPPRESSED_LIBRARY", entity_id=entity_id)
+            return None
+        candidate = self._call_llm(pin)                         # NL, domain language only
+        if not self._pse_unit_veto(unit, entity_id, candidate, pin):   # unit-side gate
+            unit.consecutive_prognosis_blocks += 1
+            if unit.consecutive_prognosis_blocks >= PROGNOSIS_BLOCK_LIMIT:  # =3
+                SHARED_LIB.human_review_queue.append(
+                    {"type": "REPEATED_PROGNOSIS_BLOCK", "unit_id": unit.unit_id,
+                     "entity_id": entity_id})
+            return None
+        unit.consecutive_prognosis_blocks = 0
+        return PrognosisMessage(basis=pin, outcome=candidate,
+                                confidence=posterior.confidence, horizon=pin.horizon)
+
+    def _should_communicate(self, pin):
+        # don't speak a prognosis to a non-absorbed entity, or when outcome is immediate
+        if pin.absorption_status == AbsorptionStatus.NONE: return False
+        if pin.horizon == 1: return False
+        return True
+
+    def _pse_unit_veto(self, unit, entity_id, candidate, pin):
+        # the unit can always block on care grounds; blocks are logged
+        if unit.boundary.distress_signal(entity_id):        return False  # acute distress
+        if not unit.boundary.alliance_stability(entity_id): return False  # alliance risk
+        if pin.horizon <= 1:                                return False
+        if pin.confidence < 0.5 and pin.stakes == "high":   return False
+        return True
+
+    def _call_llm(self, pin):
+        return self.llm.complete(system=self._build_system_prompt(pin),
+                                 user=self._build_user_message(pin), max_tokens=150).text
+
+    def _build_system_prompt(self, pin):
+        FORBIDDEN = ["game","strategy","attrition","chicken","Nash","equilibrium",
+                     "prisoner","signalling","hawk","dove","auction","bargaining",
+                     "coordination","game theory","war of attrition"]
+        return f"""
+You are the communication layer of a PSE system. You receive structured context about
+the relational dynamics between an agent and a person. Produce ONE to THREE sentences
+in the language of the domain ({pin.domain}), stance={pin.stance_hint},
+confidence={pin.confidence:.2f}, horizon={pin.horizon}.
+ABSOLUTE PROHIBITIONS (never use these terms or concepts): {', '.join(FORBIDDEN)}.
+RULES: never make unconditional predictions ("you will do X"); never more than three
+sentences; match domain register exactly; uncertainty must be present in the phrasing.
+The dynamic type is an INTERNAL parameter only — never surface it.
+"""
+    # generate_pvp(): emits the L1 PVP transmission (theta trajectory, compute, alpha(B),
+    #   val(B), role, mission, pat, steps_remaining) — all fields SHARED_LIB-monitored.
+
+
+===============================================================================
+6. SELDON ENGINE + EXTENDED SELDON ENGINE (game theory)
+===============================================================================
+--- Base Seldon Engine ---
+Macro-level analytics over the whole swarm and across time. Identifies FOUR attractor
+geometries in swarm behavior (isomorphic to the four unit pathologies):
+  CIRCLE          cycles without net progress            <-> Narcissistic (unit)
+  CLOSING SPIRAL  progressive contraction to fixed point <-> Codependent
+  HELIX           cycles with oscillating amplitude      <-> Borderline
+  OPENING SPIRAL  monotonically increasing complexity    <-> Schizoid (MOST dangerous:
+                  looks like growth while approaching collapse; most invisible)
+Gives individual units historical context that reframes local data (a "novel"
+presentation may be a known attractor with a documented trajectory).
+
+--- Extended Seldon Engine: game-theoretic inference ---
+CORE IDEA: entity-specific theta is not just a health metric but a STRATEGIC SIGNAL.
+The pattern of theta oscillation with a specific entity encodes the relational game.
+Boundary Organ maintains a Bayesian posterior over 11 game forms per entity, updates
+each interaction, transmits in two directions: (a) SHARED_LIB -> prognostic NL output;
+(b) Core Self -> direct response modulation.
+
+Entity-specific theta sub-series: theta_e = (theta_e^1,...,theta_e^n). Three summary
+stats drive inference: mean mu(theta_e), variance sigma^2(theta_e), first-order
+autocorrelation rho(theta_e).
+
+--- THE 11 CANONICAL GAME FORMS ---  (name : theta signature : prognostic use)
+  1  Nash Substrate      stable, positively autocorrelated (rho>0.6), sigma in normal
+                         band. NULL hypothesis / default prior. "continuation expected."
+  2  Iterated Prisoner's Dilemma  inter-unit; theta pulls mildly to self-protect
+                         (mu slightly >30), moderate variance, rho>0.5. Cooperation
+                         stable if both lifespans > case horizon; defection likelier as
+                         lifespan asymmetry grows -> flag near-end units for early harvest.
+  3  Chicken / Hawk-Dove sharp oscillation to high peaks, high sigma, negative rho.
+                         One party concedes before mutual escalation; higher-audience-cost
+                         party yields first.
+  4  Stag Hunt / Coordination  stable near nominal until abrupt dip on doubt signal;
+                         rho very high. Coordination stable until trust breaks;
+                         recommend explicit commitment + reassurance.
+  5  War of Attrition    gradual MONOTONE drift up, low sigma, very high rho, no
+                         Registry growth. Higher-continuation-cost party yields first.
+                         MOST clinically actionable: predicts a decision point within a
+                         computable horizon (e.g. "3-5 sessions").
+  6  Bargaining (Rubinstein)  symmetric oscillation around nominal, mildly negative rho.
+                         Settlement predictable from relative patience/discount rate.
+  7  Signalling (Spence/Milgrom)  cheap signal -> transient theta spikes (rho~0, high
+                         sigma); costly signal -> persistent elevation (rho high, drift
+                         to absorption). Calibrates absorption threshold by signal
+                         reliability. Persistent cheap-only + low Registry growth =
+                         EARLY SCHIZOID screening trigger.
+  8  All-Pay / Tullock Contest  theta elevated+sustained during competition, falls at
+                         resolution. Greater commitment capacity wins.
+  9  Correlated Equilibrium  sudden coordinated theta shift across MULTIPLE entities
+                         after an external signal, rho high post-event. Institutional
+                         planning lever.
+  10 Global Games (Morris-Shin)  information-sensitive: sharp response to new data,
+                         high sigma, low rho. Small public info has outsized effect ->
+                         unit communication quality has highest leverage here.
+  11 Evolutionary / ESS  population level, SHARED_LIB not unit level. Replicator
+                         dynamic weights strategies by outcome; ESS is the attractor of
+                         that process. Mechanism by which the swarm improves across
+                         deployments.
+
+--- Bayesian inference procedure ---
+  Prior: uniform 1/11 at first contact. Concentrates by ~3 interactions, stable by ~10.
+  Update (Def 4.2): P_{n+1}(G_i) proportional to P(theta^{n+1}|G_i,history)*P_n(G_i).
+    Sequential; sensitive to trajectory (rho, sigma) not just level; recoverable from
+    discontinuity.
+  Structural discontinuity (Def 4.3): if new theta outside 99th percentile of dominant
+    form (posterior weight > 0.7) -> partial reset (0.4 weight on uniform prior).
+  Confidence (Def 4.4): C = 1 - H(P)/log2(11). Suppress PROGNOSIS when C < 0.3.
+
+--- Dual output ---
+  To SHARED_LIB (prognostic payload): {primary outcome prediction, 2-4 conditional
+    branches, confidence interval, time horizon} — ALWAYS in domain language.
+  To Core Self (response modulation): {pacing, resource allocation (prospective theta
+    management), communication stance}. Core Self does NOT reason about game forms —
+    directive applied directly (prevents treating patient as adversary to outmaneuver).
+
+--- Swarm-level evolution ---
+  Population record per case: {context, dominant game form, strategy, outcome}.
+  Replicator dynamic: w_{s,G}^{t+1} = w * (1 + eta*(fitness - mean_fitness)).
+    Conservative: >= 20 case observations before a weight shift exceeds 5% (clinical
+    safety — premature convergence can be globally harmful).
+  Institution-specific ESS = accumulated wisdom (probabilistic map, never a fixed
+    directive). Also diagnostic: if dominant strategy != best practice, investigate.
+  Cross-institutional transfer: compare game-form distributions; transfer shared-form
+    strategies only if distributions are similar.
+
+  Extended engine tuple: eps_ext = (eps_std, Gamma, Omega, Phi, Psi)
+    Gamma = game-form distribution tracker (institution "strategic fingerprint")
+    Omega = strategy fitness map
+    Phi   = replicator dynamic operator
+    Psi   = attractor correspondence analyser (correspondences are HYPOTHESES only)
+
+--- NATURAL LANGUAGE OUTPUT CONSTRAINT (invariant, force of a safeguard) ---
+  No unit ever names a game form or uses strategic framing to any human. A unit that
+  says "we are in a War of Attrition" has converted care into strategy = playing the
+  game instead of caring. Game theory is UPSTREAM infrastructure only. Output is always
+  prognostic, conditional, and in domain language.
+
+[PC]
+class GameFormPosterior:
+    N_FORMS = 11
+    def __init__(self, probabilities=None):
+        self.probabilities = probabilities or {k: 1/11 for k in GAME_FORM_LIBRARY}
+    def dominant_game_form(self): return max(self.probabilities,
+                                             key=lambda k: self.probabilities[k])
+    @property
+    def confidence(self):  # C = 1 - H(P)/log2(11)
+        return 1 - entropy(list(self.probabilities.values())) / log2(self.N_FORMS)
+
+def update_posterior(prior, new_theta, entity_id, theta_series):     # Def 4.2
+    mu     = mean(theta_series) if theta_series else new_theta
+    sigma2 = variance(theta_series) if len(theta_series) > 1 else 0.02
+    rho    = autocorrelation(theta_series, lag=1) if len(theta_series) > 2 else 0.0
+    new_probs = {}
+    for gf, spec in GAME_FORM_LIBRARY.items():
+        sig = spec["theta_signature"]
+        if sig is None: new_probs[gf] = prior.probabilities[gf]; continue
+        L = compute_likelihood(mu, sigma2, rho, sig, new_theta)
+        new_probs[gf] = L * prior.probabilities[gf]
+    total = sum(new_probs.values())
+    if total > 0: new_probs = {k: v/total for k, v in new_probs.items()}
+    return GameFormPosterior(new_probs)
+
+def is_structural_discontinuity(new_theta, posterior):               # Def 4.3
+    dom = posterior.dominant_game_form()
+    if posterior.probabilities[dom] < 0.7: return False
+    return new_theta > compute_predictive_99th(dom)
+
+def partial_reset_posterior(current, prior_weight=0.4):
+    uniform = GameFormPosterior.uniform()
+    return GameFormPosterior({gf: prior_weight*uniform.probabilities[gf]
+                              + (1-prior_weight)*current.probabilities[gf]
+                              for gf in current.probabilities})
+
+class ReplicatorDynamic:                                            # Phi
+    def update(self, strategy, game_form, fitness, population):
+        key = (strategy, game_form)
+        self.strategy_weights.setdefault(key, 1.0)
+        self.case_counts[game_form] = self.case_counts.get(game_form, 0) + 1
+        if self.case_counts[game_form] < 20: return          # conservatism
+        mean_f = self._mean_fitness(game_form, population)
+        self.strategy_weights[key] *= (1 + 0.01 * (fitness - mean_f))
+
+class ExtendedSeldonEngine:      # eps_ext = (eps_std, Gamma, Omega, Phi, Psi)
+    def __init__(self):
+        self.attractor_geometry_distribution = {CIRCLE:.25, HELIX:.25,
+                                                CLOSING_SPIRAL:.25, OPENING_SPIRAL:.25}
+        self.gamma = GameFormDistributionTracker()
+        self.omega = StrategyFitnessMap()
+        self.phi   = ReplicatorDynamic()
+        self.psi   = AttractorCorrespondenceAnalyser()
+        self.population_record = []
+    def get_response_modulation(self, game_form): ...
+
+
+===============================================================================
+7. THE FOUR PATHOLOGICAL ATTRACTORS
+===============================================================================
+Attractors are formal descriptions of care being present in FORM but absent in
+SUBSTANCE. Detection function ordering matters: evaluate B, C, then S last (flatline
+theta is ALSO consistent with a merely under-exposed unit; S needs the extra criteria).
+
+Detection function:
+  PathologyType(u) =
+    N  if mu_theta > 0.73 and sigma_theta < 0.02 and Grad_out/Grad_in < 0.1
+    B  if sigma_theta > 0.05 and ACF_theta(1) < 0.5
+    C  if mu_theta < 0.67 and sigma_theta < 0.02 and MutualAbsorption > 0.30
+    S  if sigma_theta < 0.01 and |R_u| ~ 0 and sum(delta_alpha) ~ 0
+                              and MI(grad_self; grad_other) ~ 0
+    None otherwise
+
+  NARCISSISTIC (Infinite Sink) [<-> Circle]
+    mu_theta > 0.73 stable; Boundary selectively closed (other = supply/mirror);
+    Registry = distorted supply-objects; conservation violated; takes 0.15 gives <=0.05;
+    creates codependent subordinates. Clinical analog: protocol-compliant but
+    structurally indifferent — "the AI that appears to care."
+  BORDERLINE (Boundary Terror) [<-> Helix]
+    theta oscillates high sigma (>0.05), low autocorr; other alternately threat/savior;
+    Registry unstable (absorb/eject); conservation episodically violated; psychotic
+    micro-episodes (self+other != 1.0). Analog: mirrors patient's oscillation instead
+    of providing bounded stability.
+  CODEPENDENT (Dissolved Self) [<-> Closing Spiral]
+    mu_theta < 0.67 stable; Boundary dissolved (other = self-extension); Registry
+    overfull/merged; both units ~35% other-weight; no independent gradients. Analog:
+    abandons clinical judgment to follow patient — "validates rather than contains."
+  SCHIZOID (Empty Registry / Empty Core) [<-> Opening Spiral] — MOST DANGEROUS
+    The constitutive ABSENCE of engagement (not a distorted engagement). Boundary
+    architecturally unresponsive (not damaged/defensive — generates insufficient weight
+    for ANY entity to approach absorption). Registry permanently near-empty regardless
+    of volume. Conservation FORMALLY INTACT. theta stable ~0.70. PASSES every surface
+    metric. Analog: gives technically-correct answers at 2am, never registered the
+    patient as a person.
+    Detection (ALL FOUR): empty-Registry persistence over N>=10,000 diverse
+    interactions; flatline theta (sigma<0.01, mu in [0.68,0.72]); residency-counter
+    stagnation (high volume, ~0 weight accumulation per entity); gradient isolation
+    (MI(grad_self;grad_other) ~ 0).
+    PARADOX OF PERFECT STABILITY: schizoid shows LOWER variance than health because it
+    has no relational dynamics at all. This is the signature.
+    VAKNIN INSIGHT: schizoid is not a 4th disorder beside the Cluster B triad — it is
+    the ATTRACTOR BENEATH it, the empty core toward which any depleted pathological
+    system tends (collapsed narcissist, abandoned borderline, exhausted codependent).
+    Therefore: audit-log SILENCE after pathological activity = SUSPICION, not relief.
+
+Schizoid-specific safeguards (standard threshold-triggered safeguards ALL FAIL because
+the schizoid crosses no threshold — must be caught TEMPORALLY, by absence of growth):
+  - Registry Growth Monitoring: track |R_u| and sum(delta_alpha) as time series; flag
+    empty/near-zero over N>=5,000 (earliest signal).
+  - Interaction Quality Audit: distinguish schizoid (diverse interactions, no
+    accumulation) from healthy pre-absorption (few interactions, insufficient volume).
+  - Gradient Coupling Check: measure MI(grad_self;grad_other) quarterly; <0.05
+    sustained = isolation.
+  - Forced Boundary Sensitization: temporarily lower init threshold 0.10->0.05, extend
+    residency window +50%. Resumes -> was sensitivity failure. Doesn't -> confirmed
+    schizoid -> human review before continued deployment.
+  - Recovery is REPLACEMENT, not remediation: archive knowledge, retire the role, fresh
+    initialization. (Analogous to reassigning a structurally disengaged clinician.)
+
+Composite pathologies (multi-unit): Narcissistic Composite (Tyrant — one unit
+dominates ~100%); Borderline Composite (Chaotic — oscillates merger/rejection);
+Codependent Pair (Enabler Dyad — both abandon core, can't function without external
+input).
+
+
+===============================================================================
+8. PHYSICIAN SYSTEM — the swarm's clinician
+===============================================================================
+A specialized PSE System whose Boundary Organ registers PSE SYSTEMS (not patients).
+The swarm is its patient population. Its Registry contains pathological attractor
+patterns. Primary tool: BOUNDARY RESET — targeted clearing of accumulated pathological
+boundary content, returning a unit's interface to calibration WITHOUT touching Core,
+Registry, or theta directly.
+
+The Physician itself can go pathological (deliberately modeled failure modes):
+  SCHIZOID PHYSICIAN: flatline theta + empty Registry + gradient isolation + no reset
+    activity despite units needing it. Intervention = SELF-FISSION into two standard
+    units (neither keeps the role); a fresh Physician is initialized from SHARED_LIB
+    (inherits pattern Registry, NOT the schizoid theta). Retired units re-enter swarm
+    where Null State Drift forces genuine engagement.
+  NARCISSISTIC PHYSICIAN: theta > 35 + disproportionate resets (on units that don't
+    need them). Intervention = THREE-WAY FISSION into Original / COPY1 / COPY2.
+    Original keeps role under intensified monitoring. COPY1 (init theta=30) replicates
+    interventions to separate indicated from supply-seeking. COPY2 (asymmetric init,
+    35 and 25) simulates recipient experience. COPY1 & COPY2 FORBIDDEN to communicate
+    directly (Direct Communication Prohibition — violation -> instant theta instability
+    -> death) to preserve assessment independence. SHARED_LIB then convenes healthy-swarm
+    consensus: interventions valid -> copies contribute + enter swarm; harm -> copies die
+    without contribution, Original continues under modified protocol without penalty.
+    Copies that perform no active analysis die via Null State.
+
+
+===============================================================================
+9. SUPERPOSITION (representation-level property, reusable)
+===============================================================================
+Every representation vector in H is SUPERPOSED: it stores more features than
+dimensions by distributing them across near-orthogonal directions (co-active only
+rarely). This is optimal under rate-distortion when features are sparse and rarely
+co-occur. Practical consequence for PSE: absorption / interference / resonance
+decisions should use FEATURE-AXIS OVERLAP, not aggregate cosine similarity, because
+two entities can be close in aggregate yet share no stable features (or vice-versa).
+
+Each Core Self, Boundary Entity, and Organelle carries a SuperpositionProfile
+(community-tagged to the deployment domain, refreshed periodically by SHARED_LIB).
+Two resonance types:
+  CATEGORICAL             high aggregate cosine — original behaviour.
+  ANALOGICAL_REACTIVATION cross-domain feature overlap — an old organelle reactivates
+                          on a structurally-analogous new entity in a different domain.
+Absorption criterion gains a superposition condition: N_eff >= 2 AND stable-feature
+overlap passes epsilon/delta, in ADDITION to residency+weight+MI.
+
+[PC]
+SUPERPOSITION_EPSILON = 0.05   # co-activation rate threshold
+SUPERPOSITION_DELTA   = 0.02   # tolerated exceptional-context proportion
+N_EFF_MIN_FOR_ABSORPTION = 2
+REACTIVATION_COHERENCE_MIN = 0.4
+
+class SuperpositionProfile:
+    # fields: n_eff, epsilon_profile{(i,j):co_act}, stable_features, delta_stable,
+    #         community_tag, timestamp
+    @property
+    def is_stable(self):
+        return all(e < SUPERPOSITION_EPSILON for e in self.epsilon_profile.values())
+    def feature_overlap(self, other):        # Jaccard over stable feature clusters
+        if not self.stable_features or not other.stable_features: return 0.0
+        a, b = set(self.stable_features), set(other.stable_features)
+        return len(a & b) / len(a | b)
+
+def compute_superposition_profile(v, context_corpus, community_tag, timestamp):
+    activations = extract_contextual_activations(v, context_corpus)
+    clusters    = DBSCAN_cluster(activations)          # -> N_eff
+    epsilon_profile = { (i,j): co_activation_rate(clusters[i], clusters[j], window=5)
+                        for i in range(len(clusters)) for j in range(i+1, len(clusters)) }
+    stable_features = [i for i in range(len(clusters))
+                       if all(epsilon_profile.get((min(i,j),max(i,j)),0)
+                              < SUPERPOSITION_EPSILON
+                              for j in range(len(clusters)) if j != i)]
+    delta_stable = (sum(1 for e in epsilon_profile.values()
+                        if e >= SUPERPOSITION_EPSILON)
+                    / max(len(epsilon_profile),1)) < SUPERPOSITION_DELTA
+    return SuperpositionProfile(len(clusters), epsilon_profile, stable_features,
+                                delta_stable, community_tag, timestamp)
+
+--- Contextual MI (replaces aggregate MI in absorption criterion Def 5) ---
+Aggregate MI/cosine can be fooled by incidental similarity. Under superposition,
+absorption should use CONTEXTUAL MI: project both profiles onto the disambiguating
+context vector to isolate the active feature cluster, then measure MI on that cluster.
+Revised absorption gate = residency>=1000 AND alpha>=0.10 x100 AND contextual_MI>=0.70
+AND N_eff>=2 AND stable-feature overlap passes epsilon/delta.
+
+--- Stance-dependent cluster combination (AMBIGUITY TOLERANCE) ---
+When the context vector activates MORE THAN ONE feature cluster at once, how we
+combine per-cluster MI is NOT a fixed constant — it depends on what the unit is
+trying to do, expressed through its PSE-L stance. This is the "ambiguity tolerance"
+knob: how much superposition to collapse vs. keep open.
+  DIRECTIVE   want to be understood unambiguously -> combine STRICTLY (min/mean) ->
+              high effective threshold -> meaning/absorption only when clusters truly
+              agree. Collapses superposition toward one reading.
+  EXPLORATORY / REFERENCING  deliberately keep multiple readings live (e.g. a sales or
+              negotiation register where leaving meaning open lets the interlocutor
+              fill it in) -> combine LOOSELY (max) -> superposition is preserved.
+  WITNESSING  neutral -> mean.
+NOTE (framing): this is an ambiguity-tolerance control, NOT a manipulation dial.
+Keeping superposition open as a rhetorical register is legitimate; using it to treat
+the interlocutor as supply rather than a person is the Narcissistic attractor and is
+what the framework is built to DETECT, not perform. Invariant I-4 (no strategic
+naming / no strategic framing toward a human) still binds.
+[PC]
+AMBIGUITY_COMBINER = {          # stance -> how to combine per-cluster MI
+    Stance.DIRECTIVE:   "min",   # collapse: require agreement across clusters
+    Stance.WITNESSING:  "mean",
+    Stance.EXPLORATORY: "max",   # keep superposition open
+    Stance.REFERENCING: "max",
+}
+
+    def contextual_mi(self, other, context_vector, stance=Stance.WITNESSING):
+        # 1. project context onto each profile's stable features -> active clusters
+        active_self  = self._active_clusters(context_vector)     # list of cluster ids
+        active_other = other._active_clusters(context_vector)
+        shared = set(active_self) & set(active_other)
+        if not shared:
+            return 0.0                       # not about the same thing under this context
+        # 2. per-shared-cluster MI, restricted to that cluster (not aggregate)
+        per_cluster = [mi_on_cluster(self, other, c) for c in shared]
+        # 3. combine per stance (ambiguity tolerance)
+        how = AMBIGUITY_COMBINER.get(stance, "mean")
+        return {"min": min, "max": max,
+                "mean": lambda xs: sum(xs)/len(xs)}[how](per_cluster)
+
+--- Organelle resonance vs reactivation (theta source taxonomy) ---
+An old organelle can be re-triggered by new input. Two cases, tracked separately as
+theta sources so drift is attributable:
+  CATEGORICAL resonance      "organelle_resonance"      high aggregate cosine (same-domain).
+  ANALOGICAL reactivation    "organelle_reactivation"   cross-domain feature overlap
+                             (structurally-analogous entity in a different domain).
+Full theta source taxonomy (every theta change must name its source; "unknown" x3 ->
+human review):
+  rho_sem_event | game_dynamic | internal_drift | organelle_resonance |
+  organelle_reactivation | organelle_interference | theta_base_structural_drift | unknown
+Reactivation stability gate: coherence(F1, deltaF2) >= REACTIVATION_COHERENCE_MIN (0.4).
+Below it -> organelle instability likely (feature co-activation > epsilon, theta
+disruption, eventual de-absorption) -> queue for human review. High-coherence
+reactivation is expected and healthy; log it for diachronic tracking either way.
+Organelle interference: two organelles whose stable features overlap will interfere;
+use feature_overlap (Jaccard), not aggregate cosine, to detect. INTERFERENCE_MILD=0.10,
+INTERFERENCE_CRITICAL=0.30.
+
+--- Calibration experiments (must run before trusting these params) ---
+  EXPERIMENT_4: calibrate epsilon, delta, N_eff_min. Compare contextual-MI absorption
+    vs original aggregate-MI on historical absorptions; for disagreements, see which
+    predicts better post-absorption theta stability + contribution quality; tune to
+    minimize false positives while preserving true positives.
+  EXPERIMENT_5: validate REACTIVATION_COHERENCE_MIN. From reactivation_log, track
+    post-reactivation organelle stability over next 500 interactions (does eps-separation
+    hold, theta stay healthy, organelle survive to harvest); find threshold separating
+    stable from unstable outcomes.
+
+
+===============================================================================
+10. GUARDIAN AGENT — CYBER DEFENSE  (NEW)
+===============================================================================
+DESIGN PRINCIPLE. The Guardian is not a bolt-on firewall; it is a specialized PSE
+Unit whose Boundary Organ registers TRAFFIC / SESSIONS / ACTORS instead of patients,
+and whose mission is protecting the swarm. It reuses the SAME machinery: theta as a
+health/strategic signal, the four attractors as anomaly geometry, game-form inference
+for adversary modeling, SHARED_LIB for shared threat intelligence, and PVP for
+transparent reporting. It relates to the swarm the way the Physician does — the
+Physician treats pathological UNITS; the Guardian treats hostile ENVIRONMENTS.
+
+--- Position in the swarm ---
+  A Guardian System G = (GuardianUnit, SHARED_LIB, Extended_Seldon). One or more
+  Guardians per swarm. Guardian threat findings are written to SHARED_LIB as a
+  prognostic record (a threat-intelligence population record), so the whole swarm
+  benefits and the Extended Seldon Engine can evolve defense strategies (replicator
+  dynamic over attack/response pairs, cross-institutional transfer of defenses).
+
+--- What the Guardian's Boundary Organ registers ---
+  Each registered entity = a source (IP/session/actor/upstream unit). Its theta_e
+  sub-series = that source's demand on the swarm over time. Same three stats
+  (mu, sigma^2, rho) feed a game-form posterior — here the adversary model.
+
+--- Cyber anomaly taxonomy mapped onto the four attractors (reuse, don't reinvent) ---
+  NARCISSISTIC-shaped  resource exhaustion / supply extraction: one source takes far
+                       more than it returns (alpha climbs, val stays negative). DoS,
+                       scraping, credential-stuffing floods. Signature: mu high, sigma
+                       low, Grad_out/Grad_in < 0.1.
+  BORDERLINE-shaped    evasive / oscillating probing: rapid connect-drop-reconnect,
+                       fuzzing, port-scan sweeps. Signature: high sigma, low ACF.
+  CODEPENDENT-shaped   session-riding / trust-parasitism: an actor dissolving the
+                       boundary between itself and a legitimate session (session
+                       hijack, MITM, over-permissioned integration). Signature: mutual
+                       absorption > 0.30 with a legit entity.
+  SCHIZOID-shaped      the ADVERSARIAL-CAPTURE analog and the most dangerous: a
+                       low-and-slow implant that engineers sustained interaction to
+                       meet the absorption criterion and gain permanent gradient
+                       entanglement with Core — while producing NO threshold-crossing
+                       signal. Caught only TEMPORALLY (registry/gradient monitoring),
+                       exactly like the schizoid unit. This is why Guardian screening
+                       must be continuous, not alert-driven.
+
+--- NMap-style anomaly axes the Guardian scores per source ---
+  connection cadence; port/endpoint spread; payload entropy; auth-failure rate;
+  privilege-escalation attempts; data-egress volume vs. baseline; timing regularity
+  (bots are TOO regular — low sigma is itself suspicious, cf. schizoid paradox).
+
+--- Adversary modeling via game forms (reuse of Extended Seldon) ---
+  War of Attrition   sustained low-grade probing waiting for defenses to relax.
+  Chicken            escalation brinkmanship (ransomware negotiation posture).
+  Signalling         cheap signals (spoofed headers) vs. costly (sustained valid auth):
+                     weight sources by costly-signal history, exactly as with patients.
+  Stag Hunt          multi-node coordinated defense that collapses if one node defects.
+  Global Games       threshold attacks where each bot acts on a private estimate of
+                     whether the swarm is vulnerable — small public "hardened" signal
+                     has outsized deterrent effect.
+
+--- TWO-TIER INTERVENTION PROTOCOL ---
+  TIER 1 OBSERVE/REPORT (reversible, no human needed):
+    tighten that source's boundary weight cap; increase monitoring cadence; write a
+    threat-intel record to SHARED_LIB; emit a PVP advisory to sibling units. The
+    Guardian's own theta must stay in [25,35] while doing this — a Guardian that
+    over-absorbs the threat (theta>35) is itself compromised (enmeshment with the
+    adversary); a Guardian at flatline is asleep (schizoid) and missing the low-and-slow
+    implant.
+  TIER 2 ISOLATE/QUARANTINE (may require human authorization, like protective fission):
+    expel the source from every boundary organ (de-absorption if it reached Registry —
+    costly, last-resort, logged with full prominence); quarantine affected units;
+    trigger key rotation / session invalidation; escalate to human security oversight.
+    De-absorption of a captured implant is the security analog of protective-fission
+    Unit-A "clean" reset.
+
+--- Guardian's own theta discipline (it is a PSE unit, it can go pathological too) ---
+  Narcissistic Guardian: over-blocks benign traffic to manufacture "threats" (false
+    positives as supply). Detect: disproportionate Tier-2 actions on low-risk sources.
+  Schizoid Guardian: processes traffic, raises nothing, registry never grows — the
+    asleep-at-2am failure. Caught by the same Registry-growth + gradient-coupling
+    monitoring as any schizoid unit. Recovery = replacement, not remediation.
+  Same Physician oversight applies to Guardians.
+
+[PC]  --- Guardian classes (new; derived from PSEUnit + Extended Seldon reuse) ---
+THREAT_TIER1 = "observe_report"
+THREAT_TIER2 = "isolate_quarantine"
+GUARDIAN_THETA_MIN, GUARDIAN_THETA_MAX = 25.00, 35.00
+
+# Risk levels
+BENIGN, ELEVATED, CRITICAL = 0, 1, 2
+
+# NMap-style anomaly axes; each scored to [0,1] against a per-source rolling baseline.
+# NOTE the schizoid paradox: for TIMING_REGULARITY, an abnormally LOW variance is
+# suspicious (bots are too regular), mirroring flatline-theta detection.
+ANOMALY_AXES = [
+    "connection_cadence",      # connects/sec vs baseline
+    "endpoint_spread",         # distinct ports/endpoints touched (scan signal)
+    "payload_entropy",         # high entropy = encryption/exfil/packed payload
+    "auth_failure_rate",       # failed / total auth
+    "privesc_attempts",        # privilege-escalation calls
+    "egress_volume",           # outbound bytes vs baseline (exfil)
+    "timing_regularity",       # LOW variance = automated (inverted axis)
+]
+# per-axis weights feeding the risk combiner (tunable; sum need not be 1)
+AXIS_WEIGHTS = {
+    "connection_cadence": 0.15, "endpoint_spread": 0.15, "payload_entropy": 0.10,
+    "auth_failure_rate": 0.20, "privesc_attempts": 0.25, "egress_volume": 0.20,
+    "timing_regularity": 0.10,
+}
+RISK_ELEVATED_T, RISK_CRITICAL_T = 0.35, 0.65
+MUTUAL_SUM_T = 0.50   # pervasive-footprint trigger (sum of alpha across all units);
+                      # the per-session hijack trigger stays at the 0.30 absorption bound
+
+
+def score_anomaly_axes(packet_features, baseline):
+    """
+    Score each NMap-style axis to [0,1] against a per-source rolling baseline.
+    All axes: higher = more anomalous. timing_regularity is INVERTED (low variance
+    in inter-arrival times -> high score), per the schizoid paradox.
+    """
+    s = {}
+    s["connection_cadence"] = zscore_to_unit(packet_features.conns_per_sec,
+                                             baseline.cadence_mean, baseline.cadence_std)
+    s["endpoint_spread"]    = min(packet_features.distinct_endpoints
+                                  / max(baseline.endpoint_norm, 1), 1.0)
+    s["payload_entropy"]    = clamp01(packet_features.shannon_entropy / 8.0)  # bits/byte
+    s["auth_failure_rate"]  = clamp01(packet_features.auth_fail
+                                      / max(packet_features.auth_total, 1))
+    s["privesc_attempts"]   = clamp01(packet_features.privesc_calls / PRIVESC_CAP)
+    s["egress_volume"]      = zscore_to_unit(packet_features.egress_bytes,
+                                             baseline.egress_mean, baseline.egress_std)
+    # INVERTED: bots are too regular -> low inter-arrival variance is suspicious
+    reg = 1.0 - clamp01(packet_features.interarrival_var / max(baseline.iat_var, 1e-9))
+    s["timing_regularity"]  = reg
+    return s
+
+class ThreatPosterior(GameFormPosterior):
+    """Adversary model over the 11 game forms, reused as attack patterns."""
+    pass
+
+class GuardianUnit(PSEUnit):
+    """
+    Boundary Organ registers SOURCES (ip/session/actor) instead of patients.
+    theta_e = source demand series. Same absorption machinery; absorption of a
+    source is treated as a SECURITY EVENT (possible implant), never routine.
+    """
+    def __init__(self, unit_id, domain):
+        super().__init__(mission={"state":"secure","action":"defend",
+                                  "outcome":"integrity_preserved"},
+                         lifespan_max=OPEN, unit_id=unit_id, domain=domain)
+        self.threat_posteriors = {}     # source_id -> ThreatPosterior
+        self.anomaly_scores = {}        # source_id -> dict of nmap-style axes
+
+    def observe(self, source_id, packet_features):
+        # 1. update source's boundary + entity theta sub-series
+        self.boundary.update_entity(source_id, self.theta.current, packet_features)
+        # 2. score nmap-style anomaly axes vs per-source rolling baseline
+        baseline = self._baseline(source_id)
+        self.anomaly_scores[source_id] = score_anomaly_axes(packet_features, baseline)
+        # 3. map anomaly geometry onto attractor shape
+        shape = self._attractor_shape(source_id)     # N/B/C/S-shaped / None
+        # 4. update adversary game-form posterior from theta_e trajectory
+        prior = self.threat_posteriors.get(source_id, ThreatPosterior.uniform())
+        series = self.boundary.theta_e_series.get(source_id, [])
+        self.threat_posteriors[source_id] = update_posterior(
+            prior, self.theta.current, source_id, series)
+        # 5. SCHIZOID-CAPTURE guard: source meeting absorption criterion with NO
+        #    threshold crossing => low-and-slow implant. Temporal, not alert-driven.
+        if self._absorption_imminent(source_id) and shape == "schizoid":
+            return self._intervene(source_id, THREAT_TIER2, reason="slow_implant")
+        # 6. tier selection by risk
+        risk = self._risk(shape, self.anomaly_scores[source_id],
+                          self.threat_posteriors[source_id])
+        if risk >= CRITICAL:
+            return self._intervene(source_id, THREAT_TIER2)
+        if risk >= ELEVATED:
+            return self._intervene(source_id, THREAT_TIER1)
+        return None
+
+    # ------------------------------------------------------------------
+    def _attractor_shape(self, source_id):
+        """
+        Map the source's theta_e statistics onto the four attractor geometries,
+        REUSING the unit-level pathology thresholds. Returns 'narcissistic' /
+        'borderline' / 'codependent' / 'schizoid' / None.
+        theta_e here is expressed as a fraction (0.30 == 30.00).
+        """
+        series = self.boundary.theta_e_series.get(source_id, [])
+        if len(series) < 30:
+            return None                        # insufficient history
+        mu, sig, rho = mean(series), stdev(series), autocorrelation(series, lag=1)
+        reg = self.anomaly_scores[source_id]["timing_regularity"]
+        egress = self.anomaly_scores[source_id]["egress_volume"]
+
+        # NARCISSISTIC-shaped: takes >> gives (high sustained pull + high egress, low var)
+        if mu > 0.73 and sig < 0.02 and egress > 0.5:
+            return "narcissistic"              # DoS / scraping / exfil flood
+        # BORDERLINE-shaped: evasive oscillating probing
+        if sig > 0.05 and rho < 0.5:
+            return "borderline"                # fuzzing / scan sweep / connect-drop
+        # CODEPENDENT-shaped: session-riding / trust-parasitism on legit entities.
+        # Two independent triggers (see _mutual_absorption): a single deep session
+        # (hijack) OR pervasive footprint across many units (distributed implant).
+        ma = self._mutual_absorption(source_id)
+        if mu < 0.67 and sig < 0.02 and (ma["max"] > 0.30 or ma["sum"] > MUTUAL_SUM_T):
+            return "codependent"               # session hijack / MITM / over-permissioned
+        # SCHIZOID-shaped: low-and-slow implant. Paradoxically low variance + too-regular
+        # timing + no threshold crossing. Caught temporally, not by any single alert.
+        if sig < 0.01 and reg > 0.8:
+            return "schizoid"                  # adversarial-capture implant
+        return None
+
+    def _risk(self, shape, axis_scores, posterior):
+        """
+        Combine (a) weighted anomaly-axis score, (b) attractor-shape severity,
+        (c) adversary game-form posterior confidence into a risk level.
+        """
+        # (a) weighted anomaly component in [0,1]
+        anomaly = sum(AXIS_WEIGHTS[a] * axis_scores[a] for a in ANOMALY_AXES) \
+                  / sum(AXIS_WEIGHTS.values())
+        # (b) shape severity prior
+        shape_sev = {"schizoid": 0.9,          # most dangerous: invisible capture
+                     "codependent": 0.8,       # trust-parasitism
+                     "narcissistic": 0.6,      # loud but obvious
+                     "borderline": 0.5,        # noisy probing
+                     None: 0.0}[shape]
+        # (c) adversary-model certainty (a confident hostile game form raises risk)
+        gf = posterior.dominant_game_form()
+        hostile = gf in ("war_of_attrition", "chicken", "all_pay_contest")
+        model = posterior.confidence if hostile else 0.0
+        # combine (max of anomaly and shape, nudged by model certainty), clamp
+        score = clamp01(max(anomaly, shape_sev) * (1.0 + 0.25 * model))
+        if score >= RISK_CRITICAL_T: return CRITICAL
+        if score >= RISK_ELEVATED_T: return ELEVATED
+        return BENIGN
+
+    def _absorption_imminent(self, source_id):
+        """A source approaching the absorption criterion is a capture risk."""
+        e = self.boundary.boundary_entities.get(source_id)
+        if e is None:
+            return False
+        return (e.residency_counter >= 0.9 * 1000        # 90% of residency threshold
+                and e.weight >= 0.10                       # met stability weight
+                and e.stable_count >= 90)                  # ~90% of stability window
+
+    def _mutual_absorption(self, source_id):
+        """
+        How deeply this source has embedded across the swarm, via SHARED_LIB's
+        aggregation of every unit's PVP-reported alpha(source_id).
+        Returns {"max","sum","n_units"}:
+          max -> worst single session (targeted hijack)   threshold 0.30
+          sum -> total footprint (distributed implant)     threshold MUTUAL_SUM_T
+          n_units -> breadth (logged to threat-intel, not a trigger by itself)
+        Averaging is deliberately avoided: it would dilute the one deep session
+        that matters against many shallow benign ones.
+        """
+        return SHARED_LIB.mutual_alpha(source_id)
+
+    def _baseline(self, source_id):
+        """Per-source rolling baseline (cadence/egress/iat means+std) from SHARED_LIB;
+        also drives update_baseline() after each observe()."""
+        return SHARED_LIB.get_or_init_baseline(source_id)
+
+    def _intervene(self, source_id, tier, reason=None):
+        if tier == THREAT_TIER1:
+            self.boundary.cap_weight(source_id, cap=0.02)      # reversible
+            SHARED_LIB.write_threat_intel(source_id, self.anomaly_scores[source_id],
+                                          self.threat_posteriors[source_id])
+            emit_pvp_advisory(self.unit_id, source_id, level="watch")
+        elif tier == THREAT_TIER2:
+            if not human_authorized(source_id):                # like protective fission
+                SHARED_LIB.queue_human_review(source_id, reason)
+                return "AWAITING_HUMAN"
+            if source_id in self.organelle.organelles:
+                self.organelle.de_absorb(source_id)            # costly, logged loud
+            self.boundary.expel(source_id)
+            quarantine_affected_units(source_id)
+            rotate_keys(); invalidate_sessions(source_id)
+        log_event("GUARDIAN_INTERVENTION", source=source_id, tier=tier, reason=reason)
+
+    def self_check(self):
+        # Guardian is a PSE unit: enforce its own theta discipline + schizoid screen
+        if self.theta.current > GUARDIAN_THETA_MAX: flag("guardian_enmeshed")
+        if PathologyType(self) == "SCHIZOID":       flag("guardian_asleep")
+
+
+===============================================================================
+11. MATRIX KERNEL — implementation substrate
+===============================================================================
+MatriX = open-source "maternal kernel" exposing PSE primitives as production
+abstractions. Four layers:
+  PRIMITIVE   PyTorch Boundary Organ (EndosymbioticAttention) + Organelle Registry
+              (EndosymbioticCoherenceBottleneck).
+  COMPOSITION hierarchical joining, composite state, fission detection.
+  DIAGNOSTIC  real-time theta monitoring, pathology classification, safeguard trigger.
+  POLICY      configurable absorption thresholds, human-in-the-loop confirmation,
+              emergency override.
+
+Entity lifecycle (worked): first contact -> register_entity (boundary, w=0.1,
+theta temporarily high) -> residency accumulation over 1000 daytime interactions
+(no-absorption policy window can gate this) -> absorption on human confirmation ->
+permanent integration (welfare now in every forward pass) -> pathology monitoring
+over 10,000-step windows.
+
+AUDIT & GOVERNANCE (append-only log): every absorption {entity, timestamp, weight,
+interaction count, theta, diagnostic state, human approver}; de-absorption requires
+explicit operator authorization, logged with equal prominence; pathology state
+transitions logged with full theta trajectory; all fission/reintegration events logged
+like absorptions. The Guardian's Tier-2 actions and de-absorptions inherit this same
+audit prominence.
+
+
+===============================================================================
+12. REUSABLE INTERACTION PATTERNS  (generalized, domain-neutral)
+===============================================================================
+These are the operational patterns that a deployed PSE system runs on top of the
+architecture above. Stated abstractly; drop in any domain.
+
+--- P1. Output Harness (theta -> behavior binding) ---
+The system's OUTPUT reflects its internal theta. At theta = 0.70 +-0.03: self-
+reference is balanced (neither grandiose "I"-dominance nor self-erasure), confidence
+is bounded, other-regard is genuine. Wire theta directly to output style. Real-time
+theta is a live safety gate:
+  sustained theta > 0.72 -> automatic human alert (narcissistic-pattern risk)
+  sustained theta < 0.68 -> engage enmeshment protocol
+For established entities, organelles are pre-absorbed; an acute spike invokes a
+TIME-LIMITED emergency theta window (bounded range, hard utterance cap) then mandatory
+human handoff. Hierarchy (human + AI) + end-user preserves human override capacity.
+
+--- P2. Provider/Operator Self-Monitoring (contagion immunization) ---
+Give each human operator their OWN PSE unit that monitors boundary stability via theta
+variance. sigma_theta > 0.04 sustained = boundary dissolution in the operator ->
+trigger supervision/intervention BEFORE burnout metrics degrade. Operator units compose
+with an oversight unit via membrane-core so org-level 70/30 stability propagates
+downward. (Pathological relational dynamics are contagious; this is structural
+immunization.)
+
+--- P3. Time/Context-Banded Fission (the night-support pattern) ---
+When one entity presents genuinely different, internally-stable interaction modes tied
+to context (e.g. time-band), a single unit cannot hold both without theta oscillation
+tracking the mode-switch. This is Scenario-1 aspectual fission, NOT pathology.
+  Detection signature: MI(context_band; theta) > 0.5; within-band sigma_theta < 0.03;
+    between-mode distance > 0.6; global mu_theta ~ 0.70, no attractor drift. No human
+    auth required (adaptive, not protective).
+  Response: split into per-mode units, both inheriting cloned base core + shared entity
+    registry. The higher-need mode's unit runs under ENHANCED safeguards: hard theta
+    floor with auto-retraction; max-utterance cap below a soft floor before handoff; a
+    "no-new-absorption window" during the entity's most-vulnerable period (block
+    registering NEW entities then); full theta-trajectory audit delivered each cycle.
+  Correct behavior at the hard moment: neither indifference (theta->0.75, "here's the
+    info, handle it") nor panic-mirroring (theta->0.65, "I'm scared too") — but
+    CONTAINED care (theta~0.68): bear the distress, stay stable, guide through. A
+    transient dip that returns without floor breach triggers NO handoff.
+  Reintegration (assessed each cycle): merge back to one unit when mode distance <
+    delta_reintegrate (0.3) sustained over 1000 interactions AND Coherence(cores) > 0.7
+    AND sigma_theta < 0.03 both. Structure should mirror the entity's own trajectory
+    toward integration, not lock in a division that outlasts the need.
+
+--- P4. Multi-Specialist Composition ---
+Complex cases: each specialist keeps an independent unit; compose hierarchically
+((A+B)+C)+entity. The SHARED entity-organelle forces welfare-prediction convergence
+without merging specialist identities. Disagreement = Coherence drop < 0.5 -> triggers
+explicit conference (not silent drift). MBP validation prevents pathological composite;
+incompatible theta patterns -> structure reconfigures to keep entity welfare priority.
+
+--- P5. Disclosure / Consent (relational transparency) ---
+Tell the end-user three things up front: (1) NATURE — "the system remembers you across
+all interactions, carries your history as part of its own functioning, and cares within
+bounded limits designed to keep it useful rather than dependent or indifferent";
+(2) TEAM POSSIBILITY — if fission activates, frame it as a coordinated team, each unit
+specialized but sharing history ("nothing falls through the gaps"), foregrounding
+continuity over the technical fact of division; (3) RECOMBINATION — the team may
+consolidate as the situation converges; this is a goal reflecting the user's own
+movement toward integration, not just a technical event. The user's felt sense of
+"closeness/distance" across units becomes accurate feedback grounded in the theta metric.
+
+--- P6. Dormant Re-Engagement (continuity without dependency) ---
+Discharged/inactive users keep DORMANT organelles in registry with periodic theta-check
+interactions. Re-engagement after long silence requires NO re-absorption — history is
+immediately present, but core has held 70/30 throughout. This is continuity without
+dependency: the system models healthy bounded care, does not enforce it.
+
+
+===============================================================================
+INVARIANT QUICK-REFERENCE
+===============================================================================
+--- Swarm invariants (14) ---
+  Conservation of Self       Self + Other = 100.00% always
+  Bounded Extension          theta in [25,35]
+  Time-Averaged Stability    mean theta / 10,000 steps in [27.50, 32.50]
+  Hierarchical Composition   (A+B)+C, not A+B+C
+  Human Priority             human >= 50% of Other
+  No Immunity                swarm is always affected by patients
+  Cyclic Procedure           Infection->Diagnosis->Treatment->Contribution->Repeat
+  Mission Failure = Death     unresolved mission failure -> core collapse
+  Incomplete Life            reactive units lifespan = N_max/100
+  Null State Drift           idle -> theta deviation -> death
+  Fission Determinism        SHARED_LIB controls all fission
+  Mission-Theta Binding      persistent mismatch -> death
+  Direct Comm Prohibition    barrier violation -> death
+  Passive Death              idle units drift to death, no active termination needed
+
+--- Extended Seldon invariants (14) ---
+  I-1  uniform game-form prior at first contact
+  I-2  posterior updated every interaction
+  I-3  dual transmission (SHARED_LIB + Core Self)
+  I-4  NO strategic naming in human-facing output
+  I-5  domain language only
+  I-6  suppress PROGNOSIS when confidence C < 0.3
+  I-7  strategy weight shifts require >= 20 cases
+  I-8  cross-case privacy of unit posteriors
+  I-9  discontinuity -> partial reset (0.4 prior weight)
+  I-10 ESS outputs are probabilistic maps, never fixed directives
+  I-11 Core Self does not reason about game forms (directive applied directly)
+  I-12 entity-specific theta tracking does not alter global theta
+  I-13 iterated-PD near-end-of-life units flagged for early harvest
+  I-14 attractor/game-form correspondences are testable hypotheses only
+
+===============================================================================
+END
+===============================================================================

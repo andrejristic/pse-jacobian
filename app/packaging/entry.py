@@ -7,9 +7,10 @@ from pse_jacobian.gui.main_window import MainWindow
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("PSE-Jacobian")
-    MainWindow().show()
-    sys.exit(app.exec())
+    win = MainWindow()   # keep a reference so it is not garbage-collected
+    win.show()
+    return app.exec()
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -1,120 +1,61 @@
-#!/bin/sh
-# Build pse-jacobian_<ver>_all.deb WITHOUT dpkg-deb, using ar + tar + gzip.
-# Layout installed:
-#   /opt/pse-jacobian/            the app (pse_jacobian/ + run.py)
-#   /usr/bin/pse-jacobian         launcher (prefers ~/pse-venv, else python3)
-#   /usr/share/applications/…     desktop entry
-#   /usr/share/icons/hicolor/…    icon
-#   /usr/share/doc/pse-jacobian/  guides + copyright
-set -e
+#!/usr/bin/env bash
+# Build pse-jacobian_<version>_amd64.deb (self-contained PyInstaller bundle).
+# Run from a checkout; the Python project is in app/. Release build on Ubuntu 22.04.
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"       # app/packaging
+APP="$(dirname "$HERE")"                    # app
+REPO="$(dirname "$APP")"                    # repo root
+PY="${PYTHON:-$APP/.venv/bin/python}"
+VERSION="${1:-0.1.0}"; ARCH="${ARCH:-amd64}"; PKG="pse-jacobian"
+STAGE="$HERE/stage"; OUT="$REPO/dist"
 
-PKG=pse-jacobian
-VER=0.1.0
-ARCH=all
+echo "== PyInstaller bundle"
+rm -rf "$APP/build/pyi" "$STAGE"
+"$PY" -m PyInstaller --noconfirm --clean --onedir --name "$PKG" \
+  --distpath "$APP/build/pyi/dist" --workpath "$APP/build/pyi/work" --specpath "$APP/build/pyi" \
+  --collect-submodules pse_jacobian --collect-data pse_jacobian \
+  --collect-all matplotlib \
+  "$HERE/entry.py"
 
-HERE="$(cd "$(dirname "$0")" && pwd)"
-APP="$(cd "$HERE/.." && pwd)"          # the app/ directory
-BUILD="$HERE/build"
-ROOT="$BUILD/root"                     # the data tree (installed filesystem)
-DEBIAN="$BUILD/control"                # the control tree
+APPDIR="$STAGE/opt/$PKG"; mkdir -p "$APPDIR"
+cp -a "$APP/build/pyi/dist/$PKG/." "$APPDIR/"
+cp "$REPO/LICENSE" "$APPDIR/LICENSE"; cp "$REPO/NOTICE" "$APPDIR/NOTICE"
 
-rm -rf "$BUILD"
-mkdir -p "$ROOT/opt/$PKG" \
-         "$ROOT/usr/bin" \
-         "$ROOT/usr/share/applications" \
-         "$ROOT/usr/share/icons/hicolor/256x256/apps" \
-         "$ROOT/usr/share/doc/$PKG" \
-         "$DEBIAN"
-
-# --- app payload (exclude caches / packaging / build) ---
-cp -r "$APP/pse_jacobian" "$ROOT/opt/$PKG/"
-cp "$APP/run.py" "$ROOT/opt/$PKG/"
-cp "$APP/requirements.txt" "$ROOT/opt/$PKG/" 2>/dev/null || true
-find "$ROOT/opt/$PKG" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
-find "$ROOT/opt/$PKG" -name '*.pyc' -delete 2>/dev/null || true
-
-# --- launcher ---
-cat > "$ROOT/usr/bin/$PKG" <<'EOF'
-#!/bin/sh
-# PSE-Jacobian launcher. Prefer the user's venv if present, else system python3.
-APPDIR=/opt/pse-jacobian
-if [ -x "$HOME/pse-venv/bin/python" ]; then
-    PY="$HOME/pse-venv/bin/python"
-else
-    PY="python3"
-fi
-cd "$APPDIR" || exit 1
-exec "$PY" run.py "$@"
-EOF
-chmod 0755 "$ROOT/usr/bin/$PKG"
-
-# --- desktop entry ---
-cat > "$ROOT/usr/share/applications/$PKG.desktop" <<EOF
+mkdir -p "$STAGE/usr/bin" "$STAGE/usr/share/applications" \
+         "$STAGE/usr/share/icons/hicolor/256x256/apps" \
+         "$STAGE/usr/share/doc/$PKG" "$STAGE/DEBIAN"
+ln -s "/opt/$PKG/$PKG" "$STAGE/usr/bin/$PKG"
+cp "$HERE/$PKG.png" "$STAGE/usr/share/icons/hicolor/256x256/apps/$PKG.png"
+cp "$REPO/LICENSE" "$STAGE/usr/share/doc/$PKG/LICENSE"; cp "$REPO/NOTICE" "$STAGE/usr/share/doc/$PKG/NOTICE"
+cat > "$STAGE/usr/share/applications/$PKG.desktop" <<DESK
 [Desktop Entry]
 Type=Application
 Name=PSE-Jacobian
-Comment=Reproduce & audit the Jacobian Conjecture counterexample
+Comment=Reproduce and audit the Jacobian Conjecture counterexample
 Exec=$PKG
 Icon=$PKG
 Terminal=false
 Categories=Education;Science;Math;
-EOF
+DESK
 
-# --- icon ---
-python3 "$HERE/make_icon.py" "$ROOT/usr/share/icons/hicolor/256x256/apps/$PKG.png" \
-    >/dev/null 2>&1 || echo "napomena: ikona nije generisana (matplotlib?)"
-
-# --- docs ---
-cp "$APP/VODIC_SR.md" "$ROOT/usr/share/doc/$PKG/" 2>/dev/null || true
-cp "$APP/GUIDE_EN.md" "$ROOT/usr/share/doc/$PKG/" 2>/dev/null || true
-cat > "$ROOT/usr/share/doc/$PKG/copyright" <<EOF
-PSE-Jacobian
-Copyright (C) 2026 Andrej Ristic / ZeravaTech Inc.
-EOF
-
-# --- control metadata ---
-ISIZE=$(du -sk "$ROOT" | cut -f1)
-cat > "$DEBIAN/control" <<EOF
+SIZE="$(du -sk "$STAGE/opt" "$STAGE/usr" | awk '{s+=$1} END{print s}')"
+cat > "$STAGE/DEBIAN/control" <<CTL
 Package: $PKG
-Version: $VER
-Section: math
+Version: $VERSION
+Section: science
 Priority: optional
 Architecture: $ARCH
+Installed-Size: $SIZE
 Maintainer: Andrej Ristic <andrej.s.ristic@gmail.com>
-Depends: python3
-Recommends: python3-pyside6 | python3-pyside6.qtwidgets, python3-sympy, python3-numpy, python3-matplotlib
-Installed-Size: $ISIZE
-Description: PSE-Jacobian — reproduce & audit the Jacobian Conjecture counterexample
- A PySide6 app that uses a PSE-architecture swarm to independently reproduce and audit
- the Alpoge / Claude Fable 5 counterexample to the Jacobian Conjecture (C^3 -> C^3).
- Tabs: Case, Workbench, Discovery (LLM-in-the-loop), n=2 Frontier, Family, Diagnostics
- (full PSE machinery), Chat, and exportable Reports with an append-only audit ledger.
- If a Python venv exists at ~/pse-venv it is used automatically; otherwise system python3
- and the recommended python3 packages are used.
-EOF
+Depends: libc6 (>= 2.34), libgl1, libegl1, libfontconfig1, libxkbcommon0, libdbus-1-3
+Homepage: https://github.com/andrejristic/pse-jacobian
+Description: PSE-Jacobian - reproduce and audit the Jacobian Conjecture counterexample
+ A Partial Self-Extension swarm that independently reproduces and audits a
+ counterexample to the Jacobian Conjecture over the complex numbers, with a
+ symbolic math engine, Guardians, and a plain-language report.
+CTL
 
-# --- postinst: refresh desktop + icon caches (best-effort) ---
-cat > "$DEBIAN/postinst" <<'EOF'
-#!/bin/sh
-set -e
-if command -v update-desktop-database >/dev/null 2>&1; then
-    update-desktop-database -q /usr/share/applications || true
-fi
-if command -v gtk-update-icon-cache >/dev/null 2>&1; then
-    gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
-fi
-exit 0
-EOF
-chmod 0755 "$DEBIAN/postinst"
-
-# --- assemble the .deb (ar members MUST be in this order) ---
-cd "$BUILD"
-echo "2.0" > debian-binary
-tar --owner=0 --group=0 -czf control.tar.gz -C "$DEBIAN" .
-tar --owner=0 --group=0 -czf data.tar.gz -C "$ROOT" .
-OUT="$APP/${PKG}_${VER}_${ARCH}.deb"
-rm -f "$OUT"
-ar rc "$OUT" debian-binary control.tar.gz data.tar.gz
-
-echo "Napravljeno: $OUT"
-ls -la "$OUT"
+echo "== dpkg-deb"; mkdir -p "$OUT"
+DEB="$OUT/${PKG}_${VERSION}_${ARCH}.deb"
+dpkg-deb --root-owner-group -Zxz --build "$STAGE" "$DEB"
+echo "built $DEB"

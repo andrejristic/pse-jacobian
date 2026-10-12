@@ -1,0 +1,47 @@
+name: build-exe
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  exe:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: bash
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m venv .venv
+          .venv/Scripts/pip install -e . pyinstaller
+      - name: Inno Setup
+        run: |
+          if [ ! -f "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" ]; then choco install innosetup --no-progress -y; fi
+      - name: Build installer
+        run: bash packaging/build_exe.sh
+      - name: Install silently
+        shell: pwsh
+        working-directory: app
+        run: |
+          $setup = Get-ChildItem ..\dist\PSEJacobian-Setup-*.exe | Select-Object -First 1
+          Start-Process $setup.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=$env:RUNNER_TEMP\jac" -Wait
+          if (-not (Test-Path "$env:RUNNER_TEMP\jac\pse-jacobian.exe")) { throw "not installed" }
+      - name: App starts
+        shell: pwsh
+        working-directory: app
+        run: |
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          $p = Start-Process "$env:RUNNER_TEMP\jac\pse-jacobian.exe" -PassThru
+          Start-Sleep -Seconds 20
+          if ($p.HasExited) { throw "exited with code $($p.ExitCode)" }
+          Stop-Process -Id $p.Id -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pse-jacobian-exe
+          path: dist/*.exe
